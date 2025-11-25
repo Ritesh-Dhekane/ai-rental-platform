@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Touch — Car Suggestions & Rental</title>
+  <style>
+    /* ===== Blue-White Theme ===== */
+    :root{
+      --bg:#f6fbff;
+      --card:#ffffff;
+      --muted:#6b7785;
+      --accent:#0b69ff;
+      --accent-2:#2ea6ff;
+      --glass: rgba(255,255,255,0.7);
+      --shadow: 0 6px 20px rgba(12, 40, 80, 0.08);
+      --radius:14px;
+      --success: #1aa36b;
+      --danger: #ff5c5c;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,var(--bg), #eef7ff 60%);
+      color:#12202b;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      min-height:100vh;
+    }
+
+    /* ===== Layout ===== */
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:18px 28px;
+      gap:12px;
+    }
+    .logo{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      font-weight:700;
+      font-size:20px;
+      color:var(--accent);
+    }
+    .logo .badge{
+      width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:flex;align-items:center;justify-content:center;color:white;font-weight:800;
+      box-shadow: var(--shadow);
+    }
+    nav{display:flex;gap:12px;align-items:center}
+    nav a{color:var(--muted);text-decoration:none;padding:8px 12px;border-radius:8px}
+    nav a.cta{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+
+    main{display:grid;grid-template-columns:280px 1fr;gap:22px;padding:20px 28px 80px}
+
+    /* ===== Sidebar Filters ===== */
+    .panel{
+      background:var(--card);
+      border-radius:12px;
+      padding:16px;
+      box-shadow:var(--shadow);
+      position:sticky; top:18px;
+    }
+    .panel h4{margin:0 0 8px;font-size:16px}
+    .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .chip{padding:6px 10px;border-radius:999px;background:#f2f7ff;color:var(--muted);cursor:pointer}
+    .chip.active{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+
+    .range-label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="range"]{width:100%}
+
+    /* ===== Cars Grid ===== */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px,1fr));
+      gap:18px;
+    }
+    .card{
+      background:var(--card);
+      border-radius:14px;
+      padding:12px;
+      box-shadow:var(--shadow);
+      display:flex;flex-direction:column;gap:8px;
+      transition:transform .18s ease, box-shadow .18s ease;
+    }
+    .card:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(12,40,80,0.12)}
+    .img{
+      height:140px;border-radius:10px;overflow:hidden;background:#e9f3ff;display:flex;align-items:center;justify-content:center
+    }
+    .img img{width:100%;height:100%;object-fit:cover}
+    .meta{display:flex;justify-content:space-between;align-items:center}
+    .title{font-weight:700}
+    .specs{font-size:13px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+    .price{font-weight:800;color:var(--accent)}
+    .actions{display:flex;gap:8px;margin-top:6px}
+    button.btn{padding:8px 10px;border-radius:10px;border:0;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+    button.ghost{background:#f2f7ff;color:var(--accent);}
+
+    /* ===== Booking Modal ===== */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(4,12,30,0.45);display:none;align-items:center;justify-content:center;z-index:60}
+    .modal{width:760px;max-width:96%;background:var(--card);padding:18px;border-radius:12px;box-shadow:var(--shadow)}
+
+    .form-row{display:flex;gap:8px;margin-bottom:8px}
+    input,select{padding:10px;border-radius:8px;border:1px solid #e6eef9;flex:1}
+
+    /* ===== Chat Widget ===== */
+    .chat-widget{
+      position:fixed;
+      right:20px;
+      bottom:20px;
+      width:78px;
+      height:78px;
+      border-radius:22px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:flex;align-items:center;justify-content:center;color:white;
+      box-shadow:0 18px 40px rgba(11,105,255,0.14);
+      z-index:80;
+      cursor:pointer;
+    }
+    .chat-widget .ping{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.9);position:absolute;right:10px;top:10px;animation:ping 2s infinite}
+    @keyframes ping{0%{transform:scale(.9);opacity:1}100%{transform:scale(1.5);opacity:0}}
+
+    /* Full Chat Drawer */
+    .chat-drawer{
+      position:fixed;right:20px;bottom:110px;width:420px;height:600px;background:var(--card);border-radius:12px;box-shadow:0 30px 60px rgba(10,30,70,0.18);overflow:hidden;display:flex;flex-direction:column;z-index:90;display:none;
+    }
+    .chat-header{display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #f0f6ff}
+    .chat-body{flex:1;padding:12px;overflow:auto;background:linear-gradient(180deg, rgba(245,251,255,0.6), transparent)}
+    .message{max-width:78%;padding:10px;border-radius:12px;margin-bottom:8px;line-height:1.3}
+    .message.user{margin-left:auto;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+    .message.ai{background:#eef7ff;color:#053264}
+    .typing{display:inline-block;height:14px;vertical-align:middle}
+    .typing .dot{width:6px;height:6px;background:#91c3ff;border-radius:50%;display:inline-block;margin-right:4px;animation:blink 1s infinite}
+    .typing .dot:nth-child(2){animation-delay:.15s}
+    .typing .dot:nth-child(3){animation-delay:.3s}
+    @keyframes blink{0%{opacity:0.25}50%{opacity:1}100%{opacity:0.25}}
+
+    .chat-controls{padding:10px;border-top:1px solid #f0f6ff;display:flex;gap:8px}
+    .chat-controls input{flex:1;padding:10px;border-radius:10px;border:1px solid #e6eef9}
+
+    /* ===== Utilities ===== */
+    .row{display:flex;gap:8px;align-items:center}
+    .hide{display:none}
+    .muted{color:var(--muted)}
+    footer{padding:20px;text-align:center;color:var(--muted);font-size:13px}
+    .top-hero{display:flex;align-items:center;gap:16px;padding:18px;border-radius:14px;background:linear-gradient(90deg,#ffffff, rgba(255,255,255,0.9));box-shadow:var(--shadow);margin:8px 28px}
+    .searchbar{display:flex;gap:8px;align-items:center;padding:10px;border-radius:12px;background:#f8fbff;flex:1}
+    .searchbar input{border:0;background:transparent;padding:8px;outline:none}
+    .badge-small{padding:6px 8px;border-radius:8px;background:#f2f7ff;color:var(--accent);font-weight:700}
+    .mini{font-size:12px;color:var(--muted)}
+    .fav-btn{background:transparent;border:0;font-size:18px;cursor:pointer;color:#ff6b81}
+    .recent{font-size:13px;color:var(--muted);margin-top:8px}
+
+    /* Responsive */
+    @media (max-width:980px){
+      main{grid-template-columns:1fr;padding-bottom:120px}
+      .panel{position:relative}
+      .chat-drawer{right:10px;bottom:100px}
+    }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="badge">AI</div>
+      <div>
+        AI Touch <div style="font-size:12px;color:var(--muted);font-weight:600">Car Suggestion & Rental</div>
+      </div>
+    </div>
+
+    <nav>
+      <a href="#" id="navVehicles">Vehicles</a>
+      <a href="#" id="navPricing">Pricing</a>
+      <a href="#" id="navContact">Contact</a>
+      <a href="#" id="openFullChat" class="cta">AI Assist</a>
+      <div style="width:12px"></div>
+      <div id="userArea"></div>
+    </nav>
+  </header>
+
+  <section class="top-hero" style="margin:0 28px 12px">
+    <div style="flex:1">
+      <h2 style="margin:0">Rent Your Perfect Car — with AI Help</h2>
+      <div class="mini">Fast search, smart suggestions and simulated bookings — all in your browser.</div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <div class="searchbar">
+          <span class="badge-small">Pickup</span>
+          <input id="searchLocation" placeholder="City or location (e.g., Bangalore)" />
+          <input id="searchDates" placeholder="Pickup - Drop (e.g., 2025-12-01 to 2025-12-05)" />
+          <button class="btn primary" id="btnSearch">Search</button>
+        </div>
+        <button class="btn ghost" id="btnReset">Reset filters</button>
+      </div>
+    </div>
+    <div style="width:320px; text-align:right">
+      <img src="https://images.unsplash.com/photo-1549921296-3a1d1f6a9f82?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.0.3&s=3f7f9ed7b623c92d6f370f0a8b6c5f6a" alt="" style="width:100%;border-radius:10px;box-shadow:var(--shadow)" />
+    </div>
+  </section>
+
+  <main>
+    <!-- Sidebar Filters -->
+    <aside class="panel">
+      <h4>Filters</h4>
+      <div style="margin-bottom:10px">
+        <div class="range-label"><span>Price/day</span><span id="priceRangeLabel">Any</span></div>
+        <input type="range" id="priceRange" min="0" max="300" />
+      </div>
+
+      <div>
+        <h4 style="margin-top:6px">Car Type</h4>
+        <div class="filter-row" id="carTypeChips"></div>
+      </div>
+
+      <div>
+        <h4 style="margin-top:6px">Fuel</h4>
+        <div class="filter-row" id="fuelChips"></div>
+      </div>
+
+      <div>
+        <h4 style="margin-top:6px">Transmission</h4>
+        <div class="filter-row" id="txChips"></div>
+      </div>
+
+      <div style="margin-top:10px">
+        <h4>Sort By</h4>
+        <select id="sortBy" style="width:100%;padding:8px;border-radius:8px;border:1px solid #eef6ff">
+          <option value="popular">Most popular</option>
+          <option value="price_asc">Price: Low → High</option>
+          <option value="price_desc">Price: High → Low</option>
+          <option value="mileage_asc">Mileage: Low → High</option>
+        </select>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4>Recently Viewed</h4>
+        <div id="recentList" class="recent">— none yet —</div>
+      </div>
+
+      <div style="margin-top:12px">
+        <h4>Favorites</h4>
+        <div id="favList" class="recent">— none yet —</div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <section>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">Available Cars</h3>
+        <div class="mini muted">Showing <span id="countShown">0</span> cars</div>
+      </div>
+
+      <div class="grid" id="carsGrid"></div>
+    </section>
+  </main>
+
+  <!-- Booking Modal -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" id="bookingModal" role="dialog">
+      <h3 id="modalTitle">Book car</h3>
+      <div id="modalCarSummary" style="display:flex;gap:10px;margin-bottom:12px"></div>
+
+      <div>
+        <div class="form-row">
+          <input id="bkPickup" placeholder="Pickup date (YYYY-MM-DD)" />
+          <input id="bkDrop" placeholder="Drop date (YYYY-MM-DD)" />
+        </div>
+        <div class="form-row">
+          <input id="bkPickupLocation" placeholder="Pickup location" />
+          <select id="bkAddon">
+            <option value="">Add-ons</option>
+            <option value="gps">GPS ($5/day)</option>
+            <option value="baby">Baby Seat ($3/day)</option>
+            <option value="ins">Insurance ($9/day)</option>
+          </select>
+        </div>
+        <div style="margin-top:8px" id="loginPrompt"></div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+          <button class="btn" id="cancelBooking">Cancel</button>
+          <button class="btn primary" id="confirmBooking">Confirm Booking</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Widget -->
+  <div class="chat-widget" id="chatWidget" title="AI Assist">
+    <div style="font-weight:900">AI</div>
+    <div class="ping"></div>
+  </div>
+
+  <!-- Chat Drawer -->
+  <div class="chat-drawer" id="chatDrawer" aria-hidden="true">
+    <div class="chat-header">
+      <div style="font-weight:800">AI Touch Assistant</div>
+      <div style="margin-left:auto;font-size:12px;color:var(--muted)">Text only</div>
+    </div>
+    <div class="chat-body" id="chatBody">
+      <!-- messages -->
+    </div>
+    <div class="chat-controls">
+      <input id="chatInput" placeholder="Ask me for a car (e.g., 'Cheap SUV for 5 people')" />
+      <button class="btn primary" id="sendChat">Send</button>
+    </div>
+  </div>
+
+  <footer>
+    Built with ❤️ — AI Touch demo — client-only (sqlite via sql.js). Data stored in this browser.
+  </footer>
+
+  <!-- ===== External libs: sql.js (sqlite in browser) ===== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
+  <script>
+  /************** CONFIG & CONSTANTS **************/
+  // Insert your Google Generative Language API key here to enable real AI:
+  const GOOGLE_API_KEY = ""; // <-- put your API KEY here (or leave empty to use simulated AI)
+
+  // Car data (10 items preloaded)
+  const CAR_DATA = [
+    {id:1, name:"Aurora X1", make:"Hyundai", model:"Aurora X1", year:2022, color:"Pearl White", mileage:18, fuel:"Petrol", transmission:"Automatic", seats:5, pricePerDay:35, image:"https://images.unsplash.com/photo-1542362567-b07e54358753?q=80&w=1200&auto=format&fit=crop", rating:4.5, description:"Comfortable city sedan with good mileage."},
+    {id:2, name:"Atlas SUV", make:"Toyota", model:"Atlas", year:2021, color:"Deep Blue", mileage:14, fuel:"Diesel", transmission:"Automatic", seats:7, pricePerDay:60, image:"https://images.unsplash.com/photo-1511919884226-fd3cad34687c?q=80&w=1200&auto=format&fit=crop", rating:4.7, description:"Spacious SUV for family trips and highways."},
+    {id:3, name:"Comet EV", make:"Tesla", model:"Comet", year:2024, color:"Silver", mileage:0, fuel:"Electric", transmission:"Automatic", seats:5, pricePerDay:95, image:"https://images.unsplash.com/photo-1519643381401-22c77e60520e?q=80&w=1200&auto=format&fit=crop", rating:4.9, description:"Silent, fast and efficient electric vehicle."},
+    {id:4, name:"Breeze Hatch", make:"Honda", model:"Breeze", year:2019, color:"Red", mileage:20, fuel:"Petrol", transmission:"Manual", seats:5, pricePerDay:28, image:"https://images.unsplash.com/photo-1502877338535-766e1452684a?q=80&w=1200&auto=format&fit=crop", rating:4.2, description:"Small hatchback ideal for city parking."},
+    {id:5, name:"Cruiser 300", make:"Ford", model:"Cruiser 300", year:2020, color:"Black", mileage:12, fuel:"Diesel", transmission:"Automatic", seats:5, pricePerDay:50, image:"https://images.unsplash.com/photo-1549921296-3a1d1f6a9f82?q=80&w=1200&auto=format&fit=crop", rating:4.4, description:"Reliable mid-size sedan for comfortable rides."},
+    {id:6, name:"Nomad Van", make:"Mercedes", model:"Nomad", year:2018, color:"Grey", mileage:10, fuel:"Diesel", transmission:"Automatic", seats:9, pricePerDay:110, image:"https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=1200&auto=format&fit=crop", rating:4.6, description:"Large van for groups and cargo."},
+    {id:7, name:"Sprint Coupe", make:"BMW", model:"Sprint", year:2023, color:"Yellow", mileage:9, fuel:"Petrol", transmission:"Automatic", seats:4, pricePerDay:120, image:"https://images.unsplash.com/photo-1549924231-f129b911e442?q=80&w=1200&auto=format&fit=crop", rating:4.8, description:"Sporty coupe — fun for short drives."},
+    {id:8, name:"EcoRide", make:"Kia", model:"EcoRide", year:2022, color:"Green", mileage:23, fuel:"Hybrid", transmission:"Automatic", seats:5, pricePerDay:40, image:"https://images.unsplash.com/photo-1483729558449-99ef09a8c325?q=80&w=1200&auto=format&fit=crop", rating:4.1, description:"Hybrid car with excellent fuel economy."},
+    {id:9, name:"Urban X", make:"Renault", model:"Urban X", year:2020, color:"Orange", mileage:16, fuel:"Petrol", transmission:"Manual", seats:5, pricePerDay:32, image:"https://images.unsplash.com/photo-1523986371872-9d3ba2e2f642?q=80&w=1200&auto=format&fit=crop", rating:4.0, description:"Compact and nimble for city driving."},
+    {id:10, name:"Grand Voyager", make:"Volvo", model:"Voyager", year:2021, color:"Champagne", mileage:11, fuel:"Diesel", transmission:"Automatic", seats:7, pricePerDay:85, image:"https://images.unsplash.com/photo-1605296867304-46d5465a13f1?q=80&w=1200&auto=format&fit=crop", rating:4.6, description:"Premium and safe — great for long tours."}
+  ];
+
+  // small helper: get image placeholder if missing
+  function imgOrPlaceholder(url){
+    return url || "https://via.placeholder.com/400x240?text=Car";
+  }
+
+  /************** SQLite (sql.js) setup **************/
+  let SQL = null;
+  let db = null;
+  const DB_KEY = "ai_car_rental_db";
+
+  async function initSqlite(){
+    SQL = await initSqlJs({ locateFile: file => "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/" + file });
+    // load existing DB from localStorage if exists
+    const saved = localStorage.getItem(DB_KEY);
+    if(saved){
+      try{
+        const u8 = Uint8Array.from(atob(saved), c => c.charCodeAt(0));
+        db = new SQL.Database(u8);
+      }catch(e){
+        console.warn("could not load saved DB, creating new", e);
+        db = new SQL.Database();
+      }
+    }else{
+      db = new SQL.Database();
+    }
+    ensureSchema();
+  }
+
+  function persistDb(){
+    if(!db) return;
+    const binary = db.export();
+    const b64 = btoa(String.fromCharCode.apply(null, binary));
+    localStorage.setItem(DB_KEY, b64);
+  }
+
+  function ensureSchema(){
+    // create tables if not exist
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, display_name TEXT);
+      CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, sender TEXT, text TEXT, ts INTEGER);
+      CREATE TABLE IF NOT EXISTS favorites (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, car_id INTEGER);
+      CREATE TABLE IF NOT EXISTS recently_viewed (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, car_id INTEGER, ts INTEGER);
+      CREATE TABLE IF NOT EXISTS bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, car_id INTEGER, pickup TEXT, dropoff TEXT, location TEXT, addons TEXT, ts INTEGER);
+    `);
+    persistDb();
+  }
+
+  /************** App State **************/
+  let state = {
+    user: null, // {id, username, display_name}
+    filters: {
+      priceMax: null,
+      type: null,
+      fuel: null,
+      transmission: null,
+    },
+    sortBy: 'popular',
+    recentViewed: [], // loaded from sqlite
+    favorites: [], // loaded from sqlite
+  };
+
+  /************** Helper: SQLite queries **************/
+  function runQuery(q, params=[]){
+    const stmt = db.prepare(q);
+    try{
+      stmt.bind(params);
+      const rows = [];
+      while(stmt.step()){
+        rows.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return rows;
+    }catch(e){
+      try{ stmt.free(); }catch(_){}
+      console.error("SQL error", e, q, params);
+      return [];
+    }
+  }
+
+  function execSqlNonQuery(sql, params=[]){
+    // for simple inserts/updates
+    try{
+      db.run(sql, params);
+      persistDb();
+      return true;
+    }catch(e){ console.error(e); return false; }
+  }
+
+  /************** UI Rendering **************/
+  const carsGrid = document.getElementById('carsGrid');
+  const countShown = document.getElementById('countShown');
+  const priceRange = document.getElementById('priceRange');
+  const priceRangeLabel = document.getElementById('priceRangeLabel');
+  const carTypeChips = document.getElementById('carTypeChips');
+  const fuelChips = document.getElementById('fuelChips');
+  const txChips = document.getElementById('txChips');
+  const sortBy = document.getElementById('sortBy');
+  const recentList = document.getElementById('recentList');
+  const favList = document.getElementById('favList');
+  const userArea = document.getElementById('userArea');
+
+  function initUI(){
+    // Setup simple chips from dataset
+    const types = Array.from(new Set(CAR_DATA.map(c => (c.seats>=7? 'Van/SUV' : c.seats<=4 ? 'Compact' : 'Sedan'))));
+    const fuels = Array.from(new Set(CAR_DATA.map(c => c.fuel)));
+    const txs = Array.from(new Set(CAR_DATA.map(c => c.transmission)));
+
+    types.forEach(t => {
+      const el = document.createElement('button'); el.className='chip'; el.innerText=t;
+      el.onclick = ()=>{ toggleFilter('type', t, el); }
+      carTypeChips.appendChild(el);
+    });
+    fuels.forEach(t => {
+      const el = document.createElement('button'); el.className='chip'; el.innerText=t;
+      el.onclick = ()=>{ toggleFilter('fuel', t, el); }
+      fuelChips.appendChild(el);
+    });
+    txs.forEach(t => {
+      const el = document.createElement('button'); el.className='chip'; el.innerText=t;
+      el.onclick = ()=>{ toggleFilter('transmission', t, el); }
+      txChips.appendChild(el);
+    });
+
+    priceRange.value = 150;
+    priceRange.addEventListener('input', ()=> {
+      priceRangeLabel.innerText = priceRange.value === '0' ? 'Any' : '$0 - $' + priceRange.value;
+      state.filters.priceMax = Number(priceRange.value) || null;
+      renderCars();
+    });
+
+    sortBy.addEventListener('change', ()=> { state.sortBy = sortBy.value; renderCars(); });
+
+    document.getElementById('btnSearch').addEventListener('click', ()=> renderCars());
+    document.getElementById('btnReset').addEventListener('click', ()=> resetFilters());
+    document.getElementById('openFullChat').addEventListener('click', openChatDrawer);
+
+    // init chat widget behavior
+    document.getElementById('chatWidget').addEventListener('click', toggleChatDrawer);
+    document.getElementById('sendChat').addEventListener('click', sendChatFromInput);
+    document.getElementById('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChatFromInput(); });
+
+    // booking modal
+    document.getElementById('cancelBooking').addEventListener('click', ()=> closeModal());
+    document.getElementById('confirmBooking').addEventListener('click', confirmBooking);
+
+    renderCars();
+    refreshUserArea();
+    loadRecentAndFavs();
+    renderRecentAndFavs();
+  }
+
+  function toggleFilter(key, val, el){
+    if(state.filters[key] === val){ state.filters[key] = null; el.classList.remove('active'); }
+    else { state.filters[key] = val; // deactivate other chips of same group
+      const parent = el.parentNode;
+      Array.from(parent.children).forEach(ch => ch.classList.remove('active'));
+      el.classList.add('active');
+    }
+    renderCars();
+  }
+
+  function resetFilters(){
+    state.filters = { priceMax:null, type:null, fuel:null, transmission:null };
+    priceRange.value = 150;
+    priceRangeLabel.innerText = 'Any';
+    Array.from(document.querySelectorAll('.chip')).forEach(ch => ch.classList.remove('active'));
+    renderCars();
+  }
+
+  function renderCars(){
+    const qtxt = document.getElementById('searchLocation').value.trim().toLowerCase();
+    const dates = document.getElementById('searchDates').value.trim();
+    let list = CAR_DATA.slice();
+
+    // filter by price
+    if(state.filters.priceMax) list = list.filter(c => c.pricePerDay <= state.filters.priceMax);
+    // filter type
+    if(state.filters.type){
+      list = list.filter(c => {
+        const cat = c.seats >= 7 ? 'Van/SUV' : (c.seats<=4 ? 'Compact' : 'Sedan');
+        return cat === state.filters.type;
+      });
+    }
+    if(state.filters.fuel) list = list.filter(c => c.fuel === state.filters.fuel);
+    if(state.filters.transmission) list = list.filter(c => c.transmission === state.filters.transmission);
+
+    if(qtxt) list = list.filter(c => (c.make + ' ' + c.model + ' ' + c.description + ' ' + c.color).toLowerCase().includes(qtxt));
+
+    // sort
+    if(state.sortBy === 'price_asc') list.sort((a,b)=>a.pricePerDay-b.pricePerDay);
+    else if(state.sortBy === 'price_desc') list.sort((a,b)=>b.pricePerDay-a.pricePerDay);
+    else if(state.sortBy === 'mileage_asc') list.sort((a,b)=>a.mileage-b.mileage);
+    else list.sort((a,b)=>b.rating - a.rating); // popular by rating
+
+    // render
+    carsGrid.innerHTML = '';
+    countShown.innerText = list.length;
+    list.forEach(car => {
+      const card = document.createElement('div'); card.className='card';
+      card.innerHTML = `
+        <div class="img"><img src="${imgOrPlaceholder(car.image)}" alt="${car.name}" /></div>
+        <div class="meta"><div><div class="title">${car.name}</div><div class="mini muted">${car.make} · ${car.year}</div></div><div class="price">$${car.pricePerDay}/day</div></div>
+        <div class="specs">
+          <div>${car.seats} seats</div>
+          <div>${car.fuel}</div>
+          <div>${car.transmission}</div>
+          <div>${car.mileage} km/l</div>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">${car.description}</div>
+      `;
+
+      const actions = document.createElement('div'); actions.className='actions';
+      const btnFav = document.createElement('button'); btnFav.className='btn'; btnFav.innerHTML = isFav(car.id) ? '❤️ Favorited' : '♡ Favorite';
+      btnFav.onclick = ()=> { toggleFav(car.id); btnFav.innerHTML = isFav(car.id) ? '❤️ Favorited' : '♡ Favorite'; renderRecentAndFavs(); };
+      const btnView = document.createElement('button'); btnView.className='btn ghost'; btnView.innerText='View';
+      btnView.onclick = ()=> { openCarDetails(car); addRecent(car.id); renderRecentAndFavs(); };
+      const btnRent = document.createElement('button'); btnRent.className='btn primary'; btnRent.innerText='Rent Now';
+      btnRent.onclick = ()=> { openBookingModal(car); addRecent(car.id); renderRecentAndFavs(); };
+      actions.appendChild(btnFav); actions.appendChild(btnView); actions.appendChild(btnRent);
+      card.appendChild(actions);
+      carsGrid.appendChild(card);
+    });
+  }
+
+  /************** Recently viewed & favorites (sqlite backed) **************/
+  function loadRecentAndFavs(){
+    // load favorites for current user if any
+    state.favorites = [];
+    state.recentViewed = [];
+    if(state.user){
+      const favs = runQuery("SELECT car_id FROM favorites WHERE user_id = ?", [state.user.id]);
+      state.favorites = favs.map(r => r.car_id);
+      const recs = runQuery("SELECT car_id FROM recently_viewed WHERE user_id = ? ORDER BY ts DESC LIMIT 10", [state.user.id]);
+      state.recentViewed = recs.map(r => r.car_id);
+    } else {
+      // for anonymous, use localStorage lists
+      const lf = localStorage.getItem('anon_favs') || '[]';
+      state.favorites = JSON.parse(lf);
+      const lr = localStorage.getItem('anon_recent') || '[]';
+      state.recentViewed = JSON.parse(lr);
+    }
+  }
+
+  function renderRecentAndFavs(){
+    // recent
+    if(state.recentViewed.length === 0) recentList.innerText = "— none yet —";
+    else recentList.innerHTML = state.recentViewed.map(id => {
+      const car = CAR_DATA.find(c=>c.id === id);
+      return car ? `<div style="margin-bottom:6px"><strong>${car.name}</strong> · <span class="mini muted">${car.make}</span></div>` : '';
+    }).join('');
+
+    // fav
+    if(state.favorites.length === 0) favList.innerText = "— none yet —";
+    else favList.innerHTML = state.favorites.map(id => {
+      const car = CAR_DATA.find(c=>c.id === id);
+      return car ? `<div style="margin-bottom:6px"><strong>${car.name}</strong> · <span class="mini muted">${car.pricePerDay}/day</span></div>` : '';
+    }).join('');
+  }
+
+  function addRecent(carId){
+    const ts = Date.now();
+    if(state.user){
+      execSqlNonQuery("INSERT INTO recently_viewed (user_id, car_id, ts) VALUES (?, ?, ?);", [state.user.id, carId, ts]);
+      // keep only last 20 per user
+      db.run(`DELETE FROM recently_viewed WHERE id IN (
+        SELECT id FROM recently_viewed WHERE user_id = ? ORDER BY ts DESC LIMIT -1 OFFSET 20
+      );`, [state.user.id]);
+      persistDb();
+    } else {
+      // anonymous
+      let arr = JSON.parse(localStorage.getItem('anon_recent') || '[]');
+      arr = arr.filter(x => x !== carId);
+      arr.unshift(carId);
+      if(arr.length>20) arr = arr.slice(0,20);
+      localStorage.setItem('anon_recent', JSON.stringify(arr));
+      state.recentViewed = arr;
+    }
+    loadRecentAndFavs();
+    renderRecentAndFavs();
+  }
+
+  function toggleFav(carId){
+    if(isFav(carId)){
+      if(state.user){
+        execSqlNonQuery("DELETE FROM favorites WHERE user_id = ? AND car_id = ?", [state.user.id, carId]);
+      } else {
+        let arr = JSON.parse(localStorage.getItem('anon_favs') || '[]');
+        arr = arr.filter(x => x !== carId);
+        localStorage.setItem('anon_favs', JSON.stringify(arr));
+        state.favorites = arr;
+      }
+    } else {
+      if(state.user){
+        execSqlNonQuery("INSERT INTO favorites (user_id, car_id) VALUES (?, ?)", [state.user.id, carId]);
+      } else {
+        let arr = JSON.parse(localStorage.getItem('anon_favs') || '[]');
+        arr.unshift(carId);
+        localStorage.setItem('anon_favs', JSON.stringify(arr));
+        state.favorites = arr;
+      }
+    }
+    loadRecentAndFavs();
+    renderRecentAndFavs();
+  }
+
+  function isFav(carId){
+    return state.favorites.includes(carId);
+  }
+
+  /************** Car details + booking modal **************/
+  let currentBookingCar = null;
+  function openCarDetails(car){
+    // open a quick simulated detail (for now show alert or simple dialog)
+    alert(`${car.name} — ${car.make} ${car.model}\n\n${car.description}\n\nPrice: $${car.pricePerDay}/day`);
+  }
+
+  function openBookingModal(car){
+    currentBookingCar = car;
+    document.getElementById('modalTitle').innerText = 'Book ' + car.name;
+    document.getElementById('modalCarSummary').innerHTML = `<div style="width:110px"><img src="${imgOrPlaceholder(car.image)}" style="width:110px;height:70px;object-fit:cover;border-radius:8px" /></div>
+      <div style="flex:1"><div style="font-weight:800">${car.name}</div><div class="mini muted">${car.make} · ${car.seats} seats</div><div style="margin-top:6px" class="mini">Rate: $${car.pricePerDay}/day</div></div>`;
+    document.getElementById('bkPickup').value = '';
+    document.getElementById('bkDrop').value = '';
+    document.getElementById('bkPickupLocation').value = document.getElementById('searchLocation').value || '';
+    document.getElementById('bkAddon').value = '';
+    document.getElementById('modalBackdrop').style.display = 'flex';
+
+    // if not logged in show login prompt
+    const loginPrompt = document.getElementById('loginPrompt');
+    if(!state.user){
+      loginPrompt.innerHTML = `<div style="padding:10px;background:#f7fbff;border-radius:8px">
+        <div class="mini muted">You are not logged in. Create a simple account to save bookings.</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="regUser" placeholder="username" style="padding:8px;border-radius:8px;border:1px solid #eef6ff" />
+          <input id="regPass" placeholder="password" type="password" style="padding:8px;border-radius:8px;border:1px solid #eef6ff" />
+          <button class="btn primary" id="regBtn">Register & proceed</button>
+        </div>
+      </div>`;
+      document.getElementById('regBtn').addEventListener('click', doRegisterFromModal);
+    } else {
+      loginPrompt.innerHTML = `<div class="mini muted">Booking as <strong>${state.user.display_name || state.user.username}</strong></div>`;
+    }
+  }
+
+  function closeModal(){ currentBookingCar = null; document.getElementById('modalBackdrop').style.display = 'none'; }
+
+  function doRegisterFromModal(){
+    const u = document.getElementById('regUser').value.trim();
+    const p = document.getElementById('regPass').value.trim();
+    if(!u || !p){ alert('enter username and password'); return; }
+    if(registerUser(u, p)){
+      alert('Registered & logged in as ' + u);
+      closeModal();
+      refreshUserArea();
+    } else {
+      alert('Registration failed (maybe username taken). Try another username.');
+    }
+  }
+
+  function confirmBooking(){
+    if(!currentBookingCar){ alert('No car selected'); return; }
+    const pickup = document.getElementById('bkPickup').value.trim();
+    const drop = document.getElementById('bkDrop').value.trim();
+    const loc = document.getElementById('bkPickupLocation').value.trim();
+    const addon = document.getElementById('bkAddon').value;
+
+    if(!pickup || !drop || !loc){
+      alert('Please add pickup, drop and location');
+      return;
+    }
+    if(!state.user){
+      alert('Please create an account or login to save booking');
+      return;
+    }
+
+    const ts = Date.now();
+    execSqlNonQuery("INSERT INTO bookings (user_id, car_id, pickup, dropoff, location, addons, ts) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [state.user.id, currentBookingCar.id, pickup, drop, loc, addon, ts]);
+
+    alert('Booking confirmed! (saved locally)');
+    closeModal();
+  }
+
+  /************** User login/register (sqlite backed) **************/
+  function registerUser(username, password, display_name){
+    display_name = display_name || username;
+    try{
+      execSqlNonQuery("INSERT INTO users (username, password, display_name) VALUES (?, ?, ?)", [username, password, display_name]);
+      // auto-login
+      const row = runQuery("SELECT id, username, display_name FROM users WHERE username = ?", [username])[0];
+      state.user = { id: row.id, username: row.username, display_name: row.display_name };
+      loadRecentAndFavs();
+      return true;
+    }catch(e){
+      console.error("register error", e);
+      return false;
+    }
+  }
+
+  function loginUser(username, password){
+    const rows = runQuery("SELECT id, username, display_name FROM users WHERE username = ? AND password = ?", [username, password]);
+    if(rows.length>0){
+      state.user = { id: rows[0].id, username: rows[0].username, display_name: rows[0].display_name };
+      loadRecentAndFavs();
+      persistDb();
+      refreshUserArea();
+      return true;
+    }
+    return false;
+  }
+
+  function logoutUser(){
+    state.user = null;
+    loadRecentAndFavs();
+    persistDb();
+    refreshUserArea();
+  }
+
+  function refreshUserArea(){
+    if(state.user){
+      userArea.innerHTML = `<div style="display:flex;gap:8px;align-items:center">
+        <div class="mini muted" style="margin-right:8px">Hi, <strong>${state.user.display_name}</strong></div>
+        <button class="btn" id="btnLogout">Logout</button>
+      </div>`;
+      document.getElementById('btnLogout').addEventListener('click', logoutUser);
+    } else {
+      userArea.innerHTML = `<div style="display:flex;gap:8px">
+        <button class="btn" id="btnOpenLogin">Login</button>
+      </div>`;
+      document.getElementById('btnOpenLogin').addEventListener('click', openLoginDialog);
+    }
+  }
+
+  function openLoginDialog(){
+    const u = prompt("Username:");
+    if(!u) return;
+    const p = prompt("Password:");
+    if(!p) return;
+    if(loginUser(u,p)) alert("Logged in!");
+    else {
+      const ok = confirm("No such user. Create new account?");
+      if(ok){
+        if(registerUser(u,p)){
+          alert("Registered and logged in!");
+          refreshUserArea();
+        } else alert("Registration failed");
+      }
+    }
+    refreshUserArea();
+    renderRecentAndFavs();
+  }
+
+  /************** Chatbot: local UI + AI calls **************/
+  const chatBody = document.getElementById('chatBody');
+  const chatDrawer = document.getElementById('chatDrawer');
+
+  function toggleChatDrawer(){
+    if(chatDrawer.style.display === 'flex') { chatDrawer.style.display = 'none'; }
+    else { openChatDrawer(); }
+  }
+
+  function openChatDrawer(){
+    chatDrawer.style.display = 'flex';
+    // load previous messages from sqlite
+    chatBody.innerHTML = '';
+    const msgs = runQuery("SELECT sender, text, ts FROM messages ORDER BY ts ASC", []);
+    msgs.forEach(m => appendMessage(m.sender, m.text));
+    scrollChatToBottom();
+  }
+
+  function appendMessage(sender, text){
+    const el = document.createElement('div');
+    el.className = 'message ' + (sender === 'user' ? 'user' : 'ai');
+    el.innerText = text;
+    chatBody.appendChild(el);
+  }
+
+  function scrollChatToBottom(){ chatBody.scrollTop = chatBody.scrollHeight; }
+
+  function saveMessageToDb(sender, text){
+    try{
+      execSqlNonQuery("INSERT INTO messages (sender, text, ts) VALUES (?, ?, ?)", [sender, text, Date.now()]);
+    }catch(e){ console.error(e); }
+  }
+
+  async function sendChatFromInput(){
+    const i = document.getElementById('chatInput');
+    const text = i.value.trim();
+    if(!text) return;
+    appendMessage('user', text);
+    saveMessageToDb('user', text);
+    i.value = '';
+    scrollChatToBottom();
+
+    // show typing indicator
+    const typing = document.createElement('div'); typing.className = 'message ai'; typing.innerHTML = `<span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Thinking...`; chatBody.appendChild(typing);
+    scrollChatToBottom();
+
+    // call AI
+    let aiResp = await getAiSuggestion(text);
+    // remove typing
+    chatBody.removeChild(typing);
+    appendMessage('ai', aiResp);
+    saveMessageToDb('ai', aiResp);
+    scrollChatToBottom();
+  }
+
+  async function getAiSuggestion(userText){
+    // Basic local heuristics: if user asks for car for N people or budget, quick filter
+    const lower = userText.toLowerCase();
+    // detect number of people
+    const m = lower.match(/(\d+)\s*(people|person|pax|seats)/);
+    let candidates = CAR_DATA.slice();
+    if(m){
+      const seatsNeeded = Number(m[1]);
+      candidates = candidates.filter(c => c.seats >= seatsNeeded);
+    }
+    // detect cheap/cheapest/low budget
+    if(/cheap|budget|afford/i.test(userText)){
+      candidates = candidates.sort((a,b)=>a.pricePerDay-b.pricePerDay).slice(0,3);
+    }
+    // detect suv/van/sedan
+    if(/suv|van|mpv/i.test(userText)){
+      candidates = candidates.filter(c => c.seats >= 6 || c.name.toLowerCase().includes('suv') || c.name.toLowerCase().includes('van'));
+    }
+    if(/electric|ev|tesla/i.test(userText)) candidates = candidates.filter(c => c.fuel.toLowerCase().includes('elect'));
+    if(/sport|coupe|fast/i.test(userText)) candidates = candidates.filter(c => c.pricePerDay > 80);
+
+    // If API key is provided, call Google Generative Language
+    if(GOOGLE_API_KEY && GOOGLE_API_KEY.trim().length>0){
+      try{
+        const resp = await callGoogleGenAPI(userText, candidates.slice(0,5));
+        if(resp) return resp;
+      }catch(e){
+        console.warn("AI API error, falling back:", e);
+      }
+    }
+
+    // Local fallback response (summarize candidates)
+    if(candidates.length === 0) return "I couldn't find a match. Try telling me budget, seats, and whether you prefer petrol/diesel/electric.";
+    const best = candidates.slice(0,3);
+    let text = "Here are some suggestions based on your request:\n\n";
+    best.forEach(c => {
+      text += `• ${c.name} (${c.make}) — ${c.seats} seats · ${c.fuel} · $${c.pricePerDay}/day\n`;
+    });
+    text += `\nYou can click 'View' or 'Rent Now' on any car. Want me to filter by budget or dates?`;
+    return text;
+  }
+
+  async function callGoogleGenAPI(userPrompt, carsList){
+    // Build a helpful prompt including top cars
+    const carSnippet = carsList.map(c => `${c.name} — ${c.make} ${c.model}, ${c.seats} seats, ${c.fuel}, $${c.pricePerDay}/day`).join("\n");
+    const systemPrompt = `You are an AI assistant for a car rental website called "AI Touch". When the user asks for car recommendations, provide short, helpful suggestions (3 options max) including a one-line reason for each, and propose quick actions such as "Compare", "Book", or "Show more". Keep it concise.`;
+    const fullPrompt = `${systemPrompt}\n\nUser asked: ${userPrompt}\n\nAvailable cars (top picks):\n${carSnippet}\n\nRespond in plain text.`;
+
+    // Google Generative Language v1beta endpoint
+    const url = `https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText?key=${GOOGLE_API_KEY}`;
+    // Note: adjust the model+endpoint version to your project and availability.
+    const body = {
+      prompt: {
+        text: fullPrompt
+      },
+      // optional parameters:
+      temperature: 0.2,
+      maxOutputTokens: 400,
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!response.ok) {
+      const txt = await response.text();
+      throw new Error('API failed: ' + txt);
+    }
+    const data = await response.json();
+    // The exact shape depends on the API version — adapt if needed.
+    // Here we assume `candidates[0].output` or similar (older formats)
+    // Try to find text content robustly:
+    let out = "";
+    if(data?.candidates && data.candidates[0]?.output){
+      out = data.candidates[0].output;
+    } else if(data?.output?.[0]?.content){
+      out = data.output[0].content;
+    } else if(data?.text) {
+      out = data.text;
+    } else if(data?.candidates?.[0]?.content){
+      out = data.candidates[0].content;
+    } else {
+      out = JSON.stringify(data).slice(0,800);
+    }
+    return out;
+  }
+
+  /************** Tiny simulation: create sample user for testing *******/
+  function ensureSampleUser(){
+    const rows = runQuery("SELECT id FROM users WHERE username = ?", ["demo"]);
+    if(rows.length === 0){
+      registerUser("demo", "demo", "Demo User");
+    }
+  }
+
+  /************** Boot & init **************/
+  (async function boot(){
+    await initSqlite();
+    ensureSampleUser();
+    initUI();
+    // Restore previous chat into drawer if any
+    // show simulated messages if empty
+    const msgs = runQuery("SELECT id FROM messages LIMIT 1", []);
+    if(msgs.length===0){
+      // create a quick welcome
+      execSqlNonQuery("INSERT INTO messages (sender, text, ts) VALUES (?, ?, ?)", ['ai', 'Hi! I am AI Touch. Tell me what kind of car you need (e.g., "Budget SUV for 5 people")', Date.now()]);
+    }
+    // refresh UI user area
+    refreshUserArea();
+  })();
+
+  </script>
+</body>
+</html>
